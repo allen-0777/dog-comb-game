@@ -16,12 +16,13 @@ let downwardDistance = 0;
 let hairDistanceTracker = 0;
 const minSwipeDistance = 60; // 往下滑動 60px 算作一次有效的梳毛
 
-let state = 0; // 0: back, 1: turn, 2: happy, 3: bald, 4: unhappy
+let state = 0; // 0: back, 1: turn, 2: happy, 3: bald, 4: unhappy, 5: very_unhappy
 let lastCombingTime = 0;
 let decayInterval = null;
 
 let upwardTolerance = 0; // 新增：狗狗對逆向梳毛的容忍度計數器
-const maxUpwardTolerance = 3; // 新增：容忍 3 次不小心的上滑
+const maxUpwardTolerance = 3; // 容忍 3 次不小心的上滑 -> unhappy
+const extremeUpwardTolerance = 5; // 繼續白目逆向梳 5 次 -> very unhappy
 
 // Thresholds for state changes
 let turnThreshold = 40;
@@ -140,7 +141,7 @@ function handleMove(e) {
             upwardTolerance = Math.max(0, upwardTolerance - 1);
             
             // 如果原本是不爽狀態，順向梳毛可以解除
-            if (state === 4) {
+            if (state === 4 || state === 5) {
                 state = strokeCount >= turnThreshold ? 1 : 0;
                 dogImage.src = state === 1 ? 'assets/dog_turn_v4.png' : 'assets/dog_back_v4.png';
             }
@@ -167,9 +168,26 @@ function handleMove(e) {
         strokeCount = Math.max(0, strokeCount - 1);
         
         // 只有當不爽計數累積超過容忍度時，才進入不爽狀態
-        if (upwardTolerance >= maxUpwardTolerance && state !== 2 && state !== 3 && state !== 4) {
-            state = 4; // unhappy
-            dogImage.src = 'assets/dog_unhappy_v4.png';
+        if (upwardTolerance >= extremeUpwardTolerance && state !== 2 && state !== 3) {
+            if (state !== 5) {
+                state = 5; // very unhappy
+                dogImage.src = 'assets/dog_very_unhappy_v4.png';
+            }
+            
+            // 更強烈且急促的震動與低吼抖動效果
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+            
+            dogImage.style.transform = 'translate(-4px, -4px) scale(1.02)';
+            setTimeout(() => dogImage.style.transform = 'translate(4px, 4px) scale(1.02)', 40);
+            setTimeout(() => dogImage.style.transform = 'translate(-4px, 4px) scale(1.02)', 80);
+            setTimeout(() => dogImage.style.transform = 'translate(4px, -4px) scale(1.02)', 120);
+            setTimeout(() => dogImage.style.transform = 'translate(-4px, -4px) scale(1.02)', 160);
+            setTimeout(() => dogImage.style.transform = 'translate(0, 0) scale(1)', 200);
+        } else if (upwardTolerance >= maxUpwardTolerance && state !== 2 && state !== 3 && state !== 5) {
+            if (state !== 4) {
+                state = 4; // unhappy
+                dogImage.src = 'assets/dog_unhappy_v4.png';
+            }
             
             // 震動回饋提示惹毛狗狗了
             if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
@@ -180,7 +198,7 @@ function handleMove(e) {
             setTimeout(() => dogImage.style.transform = 'translate(-2px, 2px)', 100);
             setTimeout(() => dogImage.style.transform = 'translate(2px, -2px)', 150);
             setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 200);
-        } else if (state !== 2 && state !== 3 && state !== 4) {
+        } else if (state !== 2 && state !== 3 && state !== 4 && state !== 5) {
             // 還在容忍範圍內，只給予微弱警告
             if (navigator.vibrate) navigator.vibrate([20]); // 輕微短震動
             dogImage.style.transform = 'translate(-1px, 0)';
@@ -285,10 +303,10 @@ function updateGame() {
              dogImage.src = 'assets/dog_happy_v4.png';
              resetBtn.classList.remove('hidden');
         }
-    } else if (strokeCount >= turnThreshold && strokeCount < happyThreshold && state !== 1 && state !== 4) {
+    } else if (strokeCount >= turnThreshold && strokeCount < happyThreshold && state !== 1 && state !== 4 && state !== 5) {
         state = 1;
         dogImage.src = 'assets/dog_turn_v4.png';
-    } else if (strokeCount < turnThreshold && state !== 0 && state !== 4) {
+    } else if (strokeCount < turnThreshold && state !== 0 && state !== 4 && state !== 5) {
         // 如果因為倒扣掉出了轉頭的閾值，或者重新開始，並且沒有處於不爽狀態
         state = 0;
         dogImage.src = 'assets/dog_back_v4.png';
