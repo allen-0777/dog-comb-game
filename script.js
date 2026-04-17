@@ -10,8 +10,11 @@ let isCombing = false;
 let lastY = 0;
 let lastX = 0;
 let strokeCount = 0;
-let accumulatedDistance = 0;
-const distancePerStroke = 150; // 需要滑動 150 像素才算梳 1 下
+
+let isCurrentlyCombingDown = false;
+let downwardDistance = 0;
+const minSwipeDistance = 60; // 往下滑動 60px 算作一次有效的梳毛
+
 let state = 0; // 0: back, 1: turn, 2: happy, 3: bald
 
 // Thresholds for state changes
@@ -31,8 +34,17 @@ randomizeThresholds();
 function handleStart(e) {
     if (strokeCount >= happyThreshold) return;
     isCombing = true;
-    lastY = e.clientY || (e.touches && e.touches[0].clientY);
-    lastX = e.clientX || (e.touches && e.touches[0].clientX);
+    
+    if (e.touches && e.touches.length > 0) {
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+    } else {
+        lastX = e.clientX;
+        lastY = e.clientY;
+    }
+    
+    isCurrentlyCombingDown = false;
+    downwardDistance = 0;
 }
 
 function handleMove(e) {
@@ -43,8 +55,15 @@ function handleMove(e) {
     
     // 讓梳子跟隨游標（無論是否按下）
     const rect = dogContainer.getBoundingClientRect();
-    const currentX = e.clientX || (e.touches ? e.touches[0].clientX : lastX);
-    const currentY = e.clientY || (e.touches ? e.touches[0].clientY : lastY);
+    
+    let currentX, currentY;
+    if (e.touches && e.touches.length > 0) {
+        currentX = e.touches[0].clientX;
+        currentY = e.touches[0].clientY;
+    } else {
+        currentX = e.clientX;
+        currentY = e.clientY;
+    }
     
     // 將游標位置轉換為相對於容器的座標
     const relX = currentX - rect.left;
@@ -63,49 +82,44 @@ function handleMove(e) {
     
     const deltaY = currentY - lastY;
     const deltaX = currentX - lastX;
-    const absDeltaY = Math.abs(deltaY);
-    const absDeltaX = Math.abs(deltaX);
     
-    // Calculate total movement distance
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
+    // 限制梳子旋轉角度 (依照游標移動方向微微傾斜)
+    let tilt = deltaX;
+    if (tilt > 25) tilt = 25;
+    if (tilt < -25) tilt = -25;
+    combImage.style.transform = `translate(-50%, -50%) rotate(${tilt}deg)`;
+
     // 判斷是否為順向（往下）梳毛 (Y軸正向移動，且垂直移動大於水平移動)
-    const isDownward = deltaY > 0 && deltaY > absDeltaX * 0.5;
+    const isDownward = deltaY > 0 && deltaY > Math.abs(deltaX) * 0.5;
     
-    if (distance > 0) {
-        if (isDownward) {
-            accumulatedDistance += distance;
-        } else {
-            // 逆向或橫向梳毛時，不計入有效距離，甚至稍微倒扣一點增加遊戲挑戰性
-            accumulatedDistance -= distance * 0.1;
-            if (accumulatedDistance < 0) accumulatedDistance = 0;
+    if (isDownward) {
+        if (!isCurrentlyCombingDown) {
+            isCurrentlyCombingDown = true;
+            downwardDistance = 0;
         }
+        downwardDistance += deltaY;
         
-        lastY = currentY;
-        lastX = currentX;
-        
-        // 隨著梳毛動作擺動梳子
-        combImage.style.transform = `translate(-50%, -50%) rotate(${Math.sin(accumulatedDistance / 30) * 20}deg)`;
-        
-        // 每順向移動一段距離就飄下狗毛
-        if (isDownward && Math.floor((accumulatedDistance - distance) / 15) < Math.floor(accumulatedDistance / 15)) {
-            // 一次掉落 1~3 根毛
+        if (downwardDistance >= minSwipeDistance) {
+            strokeCount++;
+            downwardDistance = -9999; // 設為極小值，防止單次滑動重複計分，直到玩家往上提才會重置
+            
+            if (strokeCount > happyThreshold) strokeCount = happyThreshold;
+            updateGame();
+            
+            // 掉毛特效
             const hairCount = Math.floor(Math.random() * 3) + 1;
             for (let i = 0; i < hairCount; i++) {
                 spawnHair(currentX, currentY);
             }
         }
-        
-        // If moved enough, increase stroke count
-        if (accumulatedDistance >= distancePerStroke) {
-            strokeCount++;
-            accumulatedDistance -= distancePerStroke;
-            
-            if (strokeCount > happyThreshold) strokeCount = happyThreshold;
-            
-            updateGame();
-        }
+    } else if (deltaY < -5) {
+        // 如果有明顯的向上移動，表示玩家正在「回手」或提梳子，準備下一次往下梳
+        isCurrentlyCombingDown = false;
+        downwardDistance = 0;
     }
+    
+    lastY = currentY;
+    lastX = currentX;
 }
 
 function handleEnd() {
@@ -201,7 +215,8 @@ function updateGame() {
 
 function resetGame() {
     strokeCount = 0;
-    accumulatedDistance = 0;
+    isCurrentlyCombingDown = false;
+    downwardDistance = 0;
     state = 0;
     randomizeThresholds();
     dogImage.src = 'assets/dog_back_v4.png';
