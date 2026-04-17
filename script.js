@@ -161,7 +161,7 @@ function handleMove(e) {
         // 進入不爽狀態
         if (state !== 2 && state !== 3 && state !== 4) {
             state = 4; // unhappy
-            dogImage.src = 'assets/dog_unhappy.png';
+            dogImage.src = 'assets/dog_unhappy_v4.png';
             
             // 震動回饋提示惹毛狗狗了
             if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
