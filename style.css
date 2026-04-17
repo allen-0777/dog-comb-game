@@ -1,0 +1,171 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    /* Apple-style soft colorful gradient background */
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+    background-color: #fce4ec; /* fallback */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    height: 100dvh; /* 支援動態視窗高度（非常重要，解決 Safari 下方 UI 遮擋） */
+    width: 100vw;
+    overflow: hidden; /* Prevent scrolling entirely */
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.game-container {
+    /* Glassmorphism effect */
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 40px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    
+    width: 90vw;
+    max-width: 450px;
+    height: calc(100vh - 80px); /* 讓上下保留一定邊距，不寫死 85vh 避免被 Safari UI 擠壓 */
+    max-height: 800px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+    margin-top: env(safe-area-inset-top, 20px); /* 適配瀏海 */
+    margin-bottom: env(safe-area-inset-bottom, 20px); /* 適配底部橫條 */
+}
+
+.counter-wrapper {
+    position: absolute;
+    top: 50px;
+    left: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    z-index: 100;
+}
+
+.counter-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: rgba(0, 0, 0, 0.4);
+    margin-bottom: -5px;
+}
+
+.counter {
+    font-size: calc(2.5rem + 10px);
+    font-weight: 300;
+    color: #000000;
+    text-shadow: none;
+    line-height: 1;
+}
+
+.dog-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: none; /* 隱藏預設游標，使用梳子代替 */
+    border-radius: 20px;
+    touch-action: none; /* 防止梳毛時頁面滾動 */
+}
+
+.dog-container:active {
+    cursor: none;
+}
+
+#dog-image {
+    max-width: 100%;
+    max-height: 85%; /* 增加底部留白 */
+    object-fit: contain;
+    pointer-events: none; /* 讓容器處理事件 */
+    margin-bottom: 20px; /* 將狗狗稍微往上推 */
+}
+
+#comb-image {
+    position: absolute;
+    width: 120px; /* 適合手機的大小 */
+    height: auto;
+    pointer-events: none;
+    z-index: 50;
+    transform: translate(-50%, -50%); /* 使游標在梳子中心 */
+    transition: transform 0.1s ease-out; /* 增加一點平滑的跟隨效果 */
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
+    mix-blend-mode: multiply; /* 利用正片疊底完美去除白色縫隙 */
+}
+
+button {
+    position: absolute;
+    bottom: 30px;
+    /* Glassmorphism button */
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+button:hover, button:active {
+    background: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+}
+
+#particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.hair {
+    position: absolute;
+    width: var(--arc-width, 8px); /* 寬度加寬，讓彎曲有空間展現 */
+    height: var(--hair-height, 15px);
+    border-radius: 50%; /* 全圓角搭配單邊邊框，產生完美的半月彎弧度 */
+    background-color: transparent;
+    opacity: 0;
+    z-index: 10;
+    /* 極輕柔的飄落動畫 */
+    animation: fall-down var(--duration, 2s) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    pointer-events: none;
+    filter: blur(0.5px); /* 模糊稍微降低，讓極細線條不會糊成一團 */
+}
+
+@keyframes fall-down {
+    0% {
+        transform: translateY(0) translateX(0) rotate(var(--start-rot, 0deg));
+        opacity: 0.8;
+    }
+    30% {
+        transform: translateY(30px) translateX(calc(var(--drift-x, 15px) * 0.4)) rotate(calc(var(--start-rot, 0deg) + var(--spin-dir, 1) * 30deg));
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(160px) translateX(var(--drift-x, 15px)) rotate(calc(var(--start-rot, 0deg) + var(--spin-dir, 1) * 90deg));
+        opacity: 0;
+    }
+}
