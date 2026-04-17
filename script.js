@@ -13,6 +13,7 @@ let strokeCount = 0;
 
 let isCurrentlyCombingDown = false;
 let downwardDistance = 0;
+let hairDistanceTracker = 0;
 const minSwipeDistance = 60; // 往下滑動 60px 算作一次有效的梳毛
 
 let state = 0; // 0: back, 1: turn, 2: happy, 3: bald
@@ -45,6 +46,7 @@ function handleStart(e) {
     
     isCurrentlyCombingDown = false;
     downwardDistance = 0;
+    hairDistanceTracker = 0;
 }
 
 function handleMove(e) {
@@ -96,8 +98,19 @@ function handleMove(e) {
         if (!isCurrentlyCombingDown) {
             isCurrentlyCombingDown = true;
             downwardDistance = 0;
+            hairDistanceTracker = 0;
         }
         downwardDistance += deltaY;
+        hairDistanceTracker += deltaY;
+        
+        // 持續飄毛：每往下移動 15px 左右就掉落毛髮
+        if (hairDistanceTracker >= 15) {
+            hairDistanceTracker = 0;
+            const hairCount = Math.floor(Math.random() * 2) + 1; // 1~2 根
+            for (let i = 0; i < hairCount; i++) {
+                spawnHair(currentX, currentY);
+            }
+        }
         
         if (downwardDistance >= minSwipeDistance) {
             strokeCount++;
@@ -106,9 +119,9 @@ function handleMove(e) {
             if (strokeCount > happyThreshold) strokeCount = happyThreshold;
             updateGame();
             
-            // 掉毛特效
-            const hairCount = Math.floor(Math.random() * 3) + 1;
-            for (let i = 0; i < hairCount; i++) {
+            // 梳到底的時候稍微多掉一點毛增加回饋感
+            const extraHair = Math.floor(Math.random() * 3) + 2; // 2~4 根
+            for (let i = 0; i < extraHair; i++) {
                 spawnHair(currentX, currentY);
             }
         }
@@ -116,6 +129,7 @@ function handleMove(e) {
         // 如果有明顯的向上移動，表示玩家正在「回手」或提梳子，準備下一次往下梳
         isCurrentlyCombingDown = false;
         downwardDistance = 0;
+        hairDistanceTracker = 0;
     }
     
     lastY = currentY;
@@ -217,6 +231,7 @@ function resetGame() {
     strokeCount = 0;
     isCurrentlyCombingDown = false;
     downwardDistance = 0;
+    hairDistanceTracker = 0;
     state = 0;
     randomizeThresholds();
     dogImage.src = 'assets/dog_back_v4.png';
