@@ -20,6 +20,9 @@ let state = 0; // 0: back, 1: turn, 2: happy, 3: bald, 4: unhappy
 let lastCombingTime = 0;
 let decayInterval = null;
 
+let upwardTolerance = 0; // 新增：狗狗對逆向梳毛的容忍度計數器
+const maxUpwardTolerance = 3; // 新增：容忍 3 次不小心的上滑
+
 // Thresholds for state changes
 let turnThreshold = 40;
 let happyThreshold = 100;
@@ -133,6 +136,9 @@ function handleMove(e) {
             strokeCount++;
             downwardDistance = -9999; // 設為極小值，防止單次滑動重複計分，直到玩家往上提才會重置
             
+            // 順向梳毛可以安撫狗狗，降低不爽計數
+            upwardTolerance = Math.max(0, upwardTolerance - 1);
+            
             // 如果原本是不爽狀態，順向梳毛可以解除
             if (state === 4) {
                 state = strokeCount >= turnThreshold ? 1 : 0;
@@ -148,18 +154,20 @@ function handleMove(e) {
                 spawnHair(currentX, currentY);
             }
         }
-    } else if (deltaY < -15 && Math.abs(deltaY) > Math.abs(deltaX) * 0.8) {
-        // 如果有明顯的向上移動 (逆向梳毛)，且不是單純的微微回手
+    } else if (deltaY < -20 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+        // 如果有「明顯且快速」的向上移動 (調高閾值：Y軸向上超過 20px，且幾乎是垂直往上)
         lastCombingTime = Date.now(); // 更新時間防止倒扣
         isCurrentlyCombingDown = false;
         downwardDistance = 0;
         hairDistanceTracker = 0;
         
-        // 逆向梳毛的懲罰機制
+        upwardTolerance++; // 增加不爽計數
+        
+        // 逆向梳毛的懲罰機制 (固定扣分)
         strokeCount = Math.max(0, strokeCount - 1);
         
-        // 進入不爽狀態
-        if (state !== 2 && state !== 3 && state !== 4) {
+        // 只有當不爽計數累積超過容忍度時，才進入不爽狀態
+        if (upwardTolerance >= maxUpwardTolerance && state !== 2 && state !== 3 && state !== 4) {
             state = 4; // unhappy
             dogImage.src = 'assets/dog_unhappy_v4.png';
             
@@ -172,6 +180,12 @@ function handleMove(e) {
             setTimeout(() => dogImage.style.transform = 'translate(-2px, 2px)', 100);
             setTimeout(() => dogImage.style.transform = 'translate(2px, -2px)', 150);
             setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 200);
+        } else if (state !== 2 && state !== 3 && state !== 4) {
+            // 還在容忍範圍內，只給予微弱警告
+            if (navigator.vibrate) navigator.vibrate([20]); // 輕微短震動
+            dogImage.style.transform = 'translate(-1px, 0)';
+            setTimeout(() => dogImage.style.transform = 'translate(1px, 0)', 30);
+            setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 60);
         }
         
         updateGame();
@@ -287,6 +301,7 @@ function resetGame() {
     downwardDistance = 0;
     hairDistanceTracker = 0;
     state = 0;
+    upwardTolerance = 0; // 重置容忍度
     randomizeThresholds();
     dogImage.src = 'assets/dog_back_v4.png';
     counterElement.textContent = '0';
