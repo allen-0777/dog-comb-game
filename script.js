@@ -16,7 +16,9 @@ let downwardDistance = 0;
 let hairDistanceTracker = 0;
 const minSwipeDistance = 60; // 往下滑動 60px 算作一次有效的梳毛
 
-let state = 0; // 0: back, 1: turn, 2: happy, 3: bald
+let state = 0; // 0: back, 1: turn, 2: happy, 3: bald, 4: unhappy
+let lastCombingTime = 0;
+let decayInterval = null;
 
 // Thresholds for state changes
 let turnThreshold = 40;
@@ -31,6 +33,20 @@ function randomizeThresholds() {
 
 // 初始化隨機閾值
 randomizeThresholds();
+
+// 啟動舒服值消退機制
+function startDecay() {
+    if (decayInterval) clearInterval(decayInterval);
+    decayInterval = setInterval(() => {
+        // 如果超過 2 秒沒梳毛，且遊戲還沒結束，且有舒服值可以扣
+        if (Date.now() - lastCombingTime > 2000 && state !== 2 && state !== 3 && strokeCount > 0) {
+            strokeCount--;
+            updateGame();
+        }
+    }, 500); // 每 0.5 秒扣 1 下
+}
+
+startDecay();
 
 function handleStart(e) {
     if (strokeCount >= happyThreshold) return;
@@ -95,6 +111,7 @@ function handleMove(e) {
     const isDownward = deltaY > 0 && deltaY > Math.abs(deltaX) * 0.5;
     
     if (isDownward) {
+        lastCombingTime = Date.now(); // 更新最後梳毛時間
         if (!isCurrentlyCombingDown) {
             isCurrentlyCombingDown = true;
             downwardDistance = 0;
@@ -116,6 +133,12 @@ function handleMove(e) {
             strokeCount++;
             downwardDistance = -9999; // 設為極小值，防止單次滑動重複計分，直到玩家往上提才會重置
             
+            // 如果原本是不爽狀態，順向梳毛可以解除
+            if (state === 4) {
+                state = strokeCount >= turnThreshold ? 1 : 0;
+                dogImage.src = state === 1 ? 'assets/dog_turn_v4.png' : 'assets/dog_back_v4.png';
+            }
+            
             if (strokeCount > happyThreshold) strokeCount = happyThreshold;
             updateGame();
             
@@ -125,8 +148,35 @@ function handleMove(e) {
                 spawnHair(currentX, currentY);
             }
         }
+    } else if (deltaY < -15 && Math.abs(deltaY) > Math.abs(deltaX) * 0.8) {
+        // 如果有明顯的向上移動 (逆向梳毛)，且不是單純的微微回手
+        lastCombingTime = Date.now(); // 更新時間防止倒扣
+        isCurrentlyCombingDown = false;
+        downwardDistance = 0;
+        hairDistanceTracker = 0;
+        
+        // 逆向梳毛的懲罰機制
+        strokeCount = Math.max(0, strokeCount - 1);
+        
+        // 進入不爽狀態
+        if (state !== 2 && state !== 3 && state !== 4) {
+            state = 4; // unhappy
+            dogImage.src = 'assets/dog_unhappy.png';
+            
+            // 震動回饋提示惹毛狗狗了
+            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+            
+            // 短暫的抖動動畫
+            dogImage.style.transform = 'translate(-2px, -2px)';
+            setTimeout(() => dogImage.style.transform = 'translate(2px, 2px)', 50);
+            setTimeout(() => dogImage.style.transform = 'translate(-2px, 2px)', 100);
+            setTimeout(() => dogImage.style.transform = 'translate(2px, -2px)', 150);
+            setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 200);
+        }
+        
+        updateGame();
     } else if (deltaY < -5) {
-        // 如果有明顯的向上移動，表示玩家正在「回手」或提梳子，準備下一次往下梳
+        // 只是正常的提梳子回手
         isCurrentlyCombingDown = false;
         downwardDistance = 0;
         hairDistanceTracker = 0;
@@ -221,9 +271,13 @@ function updateGame() {
              dogImage.src = 'assets/dog_happy_v4.png';
              resetBtn.classList.remove('hidden');
         }
-    } else if (strokeCount >= turnThreshold && strokeCount < happyThreshold && state !== 1) {
+    } else if (strokeCount >= turnThreshold && strokeCount < happyThreshold && state !== 1 && state !== 4) {
         state = 1;
         dogImage.src = 'assets/dog_turn_v4.png';
+    } else if (strokeCount < turnThreshold && state !== 0 && state !== 4) {
+        // 如果因為倒扣掉出了轉頭的閾值，或者重新開始，並且沒有處於不爽狀態
+        state = 0;
+        dogImage.src = 'assets/dog_back_v4.png';
     }
 }
 
