@@ -154,8 +154,8 @@ function handleMove(e) {
                 spawnHair(currentX, currentY);
             }
         }
-    } else if (deltaY < -20 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
-        // 如果有「明顯且快速」的向上移動 (調高閾值：Y軸向上超過 20px，且幾乎是垂直往上)
+    } else if (deltaY < -60 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+        // 如果有「明顯且快速」的向上移動 (調高閾值：Y軸向上超過 60px，且幾乎是垂直往上)
         lastCombingTime = Date.now(); // 更新時間防止倒扣
         isCurrentlyCombingDown = false;
         downwardDistance = 0;
