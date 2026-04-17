@@ -16,6 +16,9 @@ let downwardDistance = 0;
 let hairDistanceTracker = 0;
 const minSwipeDistance = 60; // 往下滑動 60px 算作一次有效的梳毛
 
+let isCurrentlyCombingUp = false;
+let upwardDistance = 0;
+
 let state = 0; // 0: back, 1: turn, 2: happy, 3: bald, 4: unhappy, 5: very_unhappy
 let lastCombingTime = 0;
 let decayInterval = null;
@@ -67,6 +70,8 @@ function handleStart(e) {
     isCurrentlyCombingDown = false;
     downwardDistance = 0;
     hairDistanceTracker = 0;
+    isCurrentlyCombingUp = false;
+    upwardDistance = 0;
 }
 
 function handleMove(e) {
@@ -113,9 +118,14 @@ function handleMove(e) {
 
     // 判斷是否為順向（往下）梳毛 (Y軸正向移動，且垂直移動大於水平移動)
     const isDownward = deltaY > 0 && deltaY > Math.abs(deltaX) * 0.5;
+    // 判斷是否為逆向（往上）梳毛 (Y軸負向移動，且垂直移動遠大於水平移動)
+    const isUpward = deltaY < 0 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5;
     
     if (isDownward) {
         lastCombingTime = Date.now(); // 更新最後梳毛時間
+        isCurrentlyCombingUp = false; // 取消逆向狀態
+        upwardDistance = 0;
+        
         if (!isCurrentlyCombingDown) {
             isCurrentlyCombingDown = true;
             downwardDistance = 0;
@@ -155,62 +165,75 @@ function handleMove(e) {
                 spawnHair(currentX, currentY);
             }
         }
-    } else if (deltaY < -60 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
-        // 如果有「明顯且快速」的向上移動 (調高閾值：Y軸向上超過 60px，且幾乎是垂直往上)
+    } else if (isUpward) {
         lastCombingTime = Date.now(); // 更新時間防止倒扣
-        isCurrentlyCombingDown = false;
+        isCurrentlyCombingDown = false; // 取消順向狀態
         downwardDistance = 0;
         hairDistanceTracker = 0;
         
-        upwardTolerance++; // 增加不爽計數
-        
-        // 逆向梳毛的懲罰機制 (固定扣分)
-        strokeCount = Math.max(0, strokeCount - 1);
-        
-        // 只有當不爽計數累積超過容忍度時，才進入不爽狀態
-        if (upwardTolerance >= extremeUpwardTolerance && state !== 2 && state !== 3) {
-            if (state !== 5) {
-                state = 5; // very unhappy
-                dogImage.src = 'assets/dog_very_unhappy_v4.png';
-            }
-            
-            // 更強烈且急促的震動與低吼抖動效果
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
-            
-            dogImage.style.transform = 'translate(-4px, -4px) scale(1.02)';
-            setTimeout(() => dogImage.style.transform = 'translate(4px, 4px) scale(1.02)', 40);
-            setTimeout(() => dogImage.style.transform = 'translate(-4px, 4px) scale(1.02)', 80);
-            setTimeout(() => dogImage.style.transform = 'translate(4px, -4px) scale(1.02)', 120);
-            setTimeout(() => dogImage.style.transform = 'translate(-4px, -4px) scale(1.02)', 160);
-            setTimeout(() => dogImage.style.transform = 'translate(0, 0) scale(1)', 200);
-        } else if (upwardTolerance >= maxUpwardTolerance && state !== 2 && state !== 3 && state !== 5) {
-            if (state !== 4) {
-                state = 4; // unhappy
-                dogImage.src = 'assets/dog_unhappy_v4.png';
-            }
-            
-            // 震動回饋提示惹毛狗狗了
-            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
-            
-            // 短暫的抖動動畫
-            dogImage.style.transform = 'translate(-2px, -2px)';
-            setTimeout(() => dogImage.style.transform = 'translate(2px, 2px)', 50);
-            setTimeout(() => dogImage.style.transform = 'translate(-2px, 2px)', 100);
-            setTimeout(() => dogImage.style.transform = 'translate(2px, -2px)', 150);
-            setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 200);
-        } else if (state !== 2 && state !== 3 && state !== 4 && state !== 5) {
-            // 還在容忍範圍內，只給予微弱警告
-            if (navigator.vibrate) navigator.vibrate([20]); // 輕微短震動
-            dogImage.style.transform = 'translate(-1px, 0)';
-            setTimeout(() => dogImage.style.transform = 'translate(1px, 0)', 30);
-            setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 60);
+        if (!isCurrentlyCombingUp) {
+            isCurrentlyCombingUp = true;
+            upwardDistance = 0;
         }
         
-        updateGame();
-    } else if (deltaY < -5) {
-        // 只是正常的提梳子回手
+        upwardDistance += Math.abs(deltaY); // 累積向上滑動的距離
+        
+        // 當向上滑動累積超過閾值 (例如 60px) 時觸發懲罰
+        if (upwardDistance >= minSwipeDistance) {
+            upwardDistance = -9999; // 防止單次上滑連續觸發
+            
+            upwardTolerance++; // 增加不爽計數
+            
+            // 逆向梳毛的懲罰機制 (固定扣分)
+            strokeCount = Math.max(0, strokeCount - 1);
+            
+            // 只有當不爽計數累積超過容忍度時，才進入不爽狀態
+            if (upwardTolerance >= extremeUpwardTolerance && state !== 2 && state !== 3) {
+                if (state !== 5) {
+                    state = 5; // very unhappy
+                    dogImage.src = 'assets/dog_very_unhappy_v4.png';
+                }
+                
+                // 更強烈且急促的震動與低吼抖動效果
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+                
+                dogImage.style.transform = 'translate(-4px, -4px) scale(1.02)';
+                setTimeout(() => dogImage.style.transform = 'translate(4px, 4px) scale(1.02)', 40);
+                setTimeout(() => dogImage.style.transform = 'translate(-4px, 4px) scale(1.02)', 80);
+                setTimeout(() => dogImage.style.transform = 'translate(4px, -4px) scale(1.02)', 120);
+                setTimeout(() => dogImage.style.transform = 'translate(-4px, -4px) scale(1.02)', 160);
+                setTimeout(() => dogImage.style.transform = 'translate(0, 0) scale(1)', 200);
+            } else if (upwardTolerance >= maxUpwardTolerance && state !== 2 && state !== 3 && state !== 5) {
+                if (state !== 4) {
+                    state = 4; // unhappy
+                    dogImage.src = 'assets/dog_unhappy_v4.png';
+                }
+                
+                // 震動回饋提示惹毛狗狗了
+                if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+                
+                // 短暫的抖動動畫
+                dogImage.style.transform = 'translate(-2px, -2px)';
+                setTimeout(() => dogImage.style.transform = 'translate(2px, 2px)', 50);
+                setTimeout(() => dogImage.style.transform = 'translate(-2px, 2px)', 100);
+                setTimeout(() => dogImage.style.transform = 'translate(2px, -2px)', 150);
+                setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 200);
+            } else if (state !== 2 && state !== 3 && state !== 4 && state !== 5) {
+                // 還在容忍範圍內，只給予微弱警告
+                if (navigator.vibrate) navigator.vibrate([20]); // 輕微短震動
+                dogImage.style.transform = 'translate(-1px, 0)';
+                setTimeout(() => dogImage.style.transform = 'translate(1px, 0)', 30);
+                setTimeout(() => dogImage.style.transform = 'translate(0, 0)', 60);
+            }
+            
+            updateGame();
+        }
+    } else {
+        // 未構成有效上下滑動時（例如提梳子回手或微小移動），重置所有狀態與距離
         isCurrentlyCombingDown = false;
+        isCurrentlyCombingUp = false;
         downwardDistance = 0;
+        upwardDistance = 0;
         hairDistanceTracker = 0;
     }
     
@@ -317,6 +340,8 @@ function resetGame() {
     strokeCount = 0;
     isCurrentlyCombingDown = false;
     downwardDistance = 0;
+    isCurrentlyCombingUp = false;
+    upwardDistance = 0;
     hairDistanceTracker = 0;
     state = 0;
     upwardTolerance = 0; // 重置容忍度
